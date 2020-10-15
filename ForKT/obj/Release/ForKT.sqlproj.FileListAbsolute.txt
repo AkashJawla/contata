@@ -1,0 +1,9 @@
+G:\contata\contata\ForKT\bin\Release\ForKT.dacpac
+G:\contata\contata\ForKT\bin\Release\ForKT.dll
+G:\contata\contata\ForKT\bin\Release\ForKT.pdb
+G:\contata\contata\ForKT\obj\Release\Model.xml
+G:\contata\contata\ForKT\obj\Release\refactor.xml
+G:\contata\contata\ForKT\obj\Release\postdeploy.sql
+G:\contata\contata\ForKT\obj\Release\predeploy.sql
+G:\contata\contata\ForKT\obj\Release\ForKT.dll
+G:\contata\contata\ForKT\obj\Release\ForKT.pdb
