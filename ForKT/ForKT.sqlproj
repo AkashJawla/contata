@@ -58,9 +58,14 @@
     <Folder Include="Properties" />
     <Folder Include="StoredProcedures" />
     <Folder Include="Tables" />
+    <Folder Include="UDT" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="Tables\demo1.sql" />
-    <Build Include="StoredProcedures\DemoProc.sql" />
+    <Build Include="UDT\FRMLoad.sql" />
+    <Build Include="StoredProcedures\InsertIntoLogTaskControllerFlow_KTpurpose.sql" />
+    <Build Include="Tables\LogTaskControlFlow_KTpurpose.sql" />
+    <Build Include="Tables\FRM_KTpurpose.sql" />
+    <Build Include="StoredProcedures\InsertIntoFRM.sql" />
+    <Build Include="StoredProcedures\UpdateFailIntoLog.sql" />
   </ItemGroup>
 </Project>
