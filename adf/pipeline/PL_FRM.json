@@ -1,0 +1,228 @@
+{
+	"name": "PL_FRM",
+	"properties": {
+		"activities": [
+			{
+				"name": "LKA_LogTaskControlFLow",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[InsertIntoLogTaskControllerFlow_KTpurpose]",
+						"storedProcedureParameters": {
+							"adfRunId": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							},
+							"dataFactory": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().DataFactory",
+									"type": "Expression"
+								}
+							},
+							"dataLoadStatus": {
+								"type": "String",
+								"value": "in progress"
+							},
+							"endingActivity": {
+								"type": "String",
+								"value": "SP_Insert"
+							},
+							"groupID": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.groupId",
+									"type": "Expression"
+								}
+							},
+							"mainEntityName": {
+								"type": "String",
+								"value": "FRM"
+							},
+							"pipeline": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().Pipeline",
+									"type": "Expression"
+								}
+							},
+							"schemaName": {
+								"type": "String",
+								"value": "dbo"
+							},
+							"startingActivity": {
+								"type": "String",
+								"value": "LKA_LogTaskControlFLow"
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "LogTaskFlow_DS",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"DbName": {
+								"value": "@pipeline().parameters.DbName",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "GMD_GetFIleName",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "LKA_LogTaskControlFLow",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "FRM_BLOB",
+						"type": "DatasetReference",
+						"parameters": {
+							"folderName": "drop",
+							"fileName": "*.*"
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings"
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "FRE_FRM_Files",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GMD_GetFIleName",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GMD_GetFIleName').output.childitems",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Set variable1",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "logTaskKey",
+								"value": {
+									"value": "@activity('LKA_LogTaskControlFLow').output.firstrow.logkey",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Copy data1",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "Set variable1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"enableStaging": false
+							},
+							"inputs": [
+								{
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "drop",
+										"fileName": "*.*"
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"ServerName": {
+				"type": "string",
+				"defaultValue": "ml-workspace.database.windows.net"
+			},
+			"DbName": {
+				"type": "string",
+				"defaultValue": "ML"
+			},
+			"groupId": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"logTaskKey": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}
