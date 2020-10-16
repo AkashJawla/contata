@@ -1,0 +1,121 @@
+{
+	"name": "LogTaskFlow_DS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_FRM",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"ServerName": {
+					"value": "@dataset().ServerName",
+					"type": "Expression"
+				},
+				"DBName": {
+					"value": "@dataset().DbName",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"ServerName": {
+				"type": "string"
+			},
+			"DbName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "LogTaskControlFlowKey",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "StartTime",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "EndTime",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "DataFactory",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Pipeline",
+				"type": "nvarchar"
+			},
+			{
+				"name": "StartingActivity",
+				"type": "nvarchar"
+			},
+			{
+				"name": "EndingActivity",
+				"type": "nvarchar"
+			},
+			{
+				"name": "SchemaName",
+				"type": "nvarchar"
+			},
+			{
+				"name": "MainEntityName",
+				"type": "nvarchar"
+			},
+			{
+				"name": "TotalRowsFromSource",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "TotalRowsFailed",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "TotalRowsInserted",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "TotalRowsUpdated",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "GroupId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "AdfRunId",
+				"type": "nvarchar"
+			},
+			{
+				"name": "DataLoadStatus",
+				"type": "nvarchar"
+			},
+			{
+				"name": "ErrorMessage",
+				"type": "nvarchar"
+			},
+			{
+				"name": "ErrorFile",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Remarks",
+				"type": "nvarchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "LogTaskControlFlow_KTpurpose"
+		}
+	}
+}

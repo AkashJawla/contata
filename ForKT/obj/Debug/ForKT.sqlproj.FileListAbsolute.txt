@@ -4,3 +4,7 @@ G:\contata\contata\ForKT\bin\Debug\ForKT.pdb
 G:\contata\contata\ForKT\obj\Debug\ForKT.sqlprojAssemblyReference.cache
 G:\contata\contata\ForKT\obj\Debug\ForKT.dll
 G:\contata\contata\ForKT\obj\Debug\ForKT.pdb
+G:\contata\contata\ForKT\obj\Debug\Model.xml
+G:\contata\contata\ForKT\obj\Debug\refactor.xml
+G:\contata\contata\ForKT\obj\Debug\postdeploy.sql
+G:\contata\contata\ForKT\obj\Debug\predeploy.sql

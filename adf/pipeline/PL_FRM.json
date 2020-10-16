@@ -1,0 +1,3476 @@
+{
+	"name": "PL_FRM",
+	"properties": {
+		"activities": [
+			{
+				"name": "LKA_LogTaskControlFLow",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[InsertIntoLogTaskControllerFlow_KTpurpose]",
+						"storedProcedureParameters": {
+							"adfRunId": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().RunId",
+									"type": "Expression"
+								}
+							},
+							"dataFactory": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().DataFactory",
+									"type": "Expression"
+								}
+							},
+							"dataLoadStatus": {
+								"type": "String",
+								"value": "in progress"
+							},
+							"endingActivity": {
+								"type": "String",
+								"value": "SP_Insert"
+							},
+							"groupID": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.groupId",
+									"type": "Expression"
+								}
+							},
+							"mainEntityName": {
+								"type": "String",
+								"value": "FRM"
+							},
+							"pipeline": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().Pipeline",
+									"type": "Expression"
+								}
+							},
+							"schemaName": {
+								"type": "String",
+								"value": "dbo"
+							},
+							"startingActivity": {
+								"type": "String",
+								"value": "LKA_LogTaskControlFLow"
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "LogTaskFlow_DS",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"DbName": {
+								"value": "@pipeline().parameters.DbName",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "GMD_GetFIleName",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "LKA_LogTaskControlFLow",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "FRM_BLOB",
+						"type": "DatasetReference",
+						"parameters": {
+							"folderName": "drop",
+							"fileName": "*.*"
+						}
+					},
+					"fieldList": [
+						"childItems"
+					],
+					"storeSettings": {
+						"type": "AzureBlobStorageReadSettings"
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "FRE_FRM_Files",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "GMD_GetFIleName",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('GMD_GetFIleName').output.childitems",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "VAR_LogKey",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "logTaskKey",
+								"value": {
+									"value": "@activity('LKA_LogTaskControlFLow').output.firstrow.logkey",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "COPY_DROP_TO_DB",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "VAR_LogKey",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"sqlWriterStoredProcedureName": "[dbo].[InsertIntoFRM]",
+									"sqlWriterTableType": "FRMLoad",
+									"storedProcedureTableTypeParameterName": "FRM_UDT",
+									"storedProcedureParameters": {
+										"DataLoadStatus": {
+											"type": "String",
+											"value": "Success"
+										},
+										"FileName": {
+											"type": "String",
+											"value": {
+												"value": "@item().name",
+												"type": "Expression"
+											}
+										},
+										"LogKey": {
+											"type": "Int32",
+											"value": {
+												"value": "@variables('logTaskKey')",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"mappings": [
+										{
+											"source": {
+												"name": "Location ID",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location ID",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "1 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "1 mile pop",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "3 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "3 mile pop",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "5 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "5 mile pop",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Actual Opening",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Actual Opening",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AverageTerm",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AverageTerm",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Avg  monthly gross personal training revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Avg  monthly gross personal training revenue",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "BOE Verified",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "BOE Verified",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Close Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Close Date",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Competition",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Competition",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "E-mail Address",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "E-mail Address",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Exchange Rate",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Exchange Rate",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Existing Sales Rep",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Existing Sales Rep",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Express Location",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Express Location",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Financing Type",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Financing Type",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Gross Rent",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Gross Rent",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Hours of Operation",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Hours of Operation",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Lack of marketing",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Lack of marketing",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Landlord Issues",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Landlord Issues",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Legal Entity",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Legal Entity",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Location Type",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location Type",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Market Type",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Market Type",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Median income > $50000",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Median income > $50000",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Members  Dues and PIF",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Members  Dues and PIF",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Monthly Fee Amt",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Monthly Fee Amt",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Multi-Purpose Room",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Multi-Purpose Room",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Multi-Purpose Sq Ft",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Multi-Purpose Sq Ft",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "No Operating Capital",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "No Operating Capital",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "No Sales Revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "No Sales Revenue",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Number of Rooms",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Number of Rooms",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Online Signup",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Online Signup",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Open Status",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Open Status",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Open Temporary Pending Relo",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Open Temporary Pending Relo",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Opened On",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Opened On",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Original Franchisee Open Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Original Franchisee Open Date",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Other",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Other",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Other Equipment",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Other Equipment",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Other Operating System",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Other Operating System",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Owner",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Owner",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Partnership Dispute",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Partnership Dispute",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Payroll",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Payroll",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 1",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 1",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 2",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 2",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 3",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 3",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 4",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 4",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 5",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 5",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 6",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 6",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Person  Training Revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Person  Training Revenue",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Personal Issues",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Personal Issues",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Personal Training",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Personal Training",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Personal Training Revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Personal Training Revenue",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Primary Contact",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Primary Contact",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Principal Operator",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Principal Operator",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Principal Owner",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Principal Owner",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Problem %",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Problem %",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Profit Loss",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Profit Loss",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Remit Amount Last Quarter",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Remit Amount Last Quarter",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Remit Amount Quarter Change",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Remit Amount Quarter Change",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Sale Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Sale Date",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Satellite Club",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Satellite Club",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Site",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Site",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Stage",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Stage",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Team Workouts",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Team Workouts",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Territory",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Territory",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Total Contracts",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Total Contracts",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Transfer Fee",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Transfer Fee",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Utilities",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Utilities",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Veteran",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Veteran",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Virtual Coaching",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Virtual Coaching",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Waxing Account#",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Waxing Account#",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Website",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Website",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Active CMS",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Active CMS",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Auto Checklist",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Auto Checklist",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP In-club Training Lead",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP In-club Training Lead",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP last Post-Launch Drip email sent",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP last Post-Launch Drip email sent",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Marketing",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Marketing",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Notes",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Notes",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Agreement Renewal Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Agreement Renewal Date",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Agreement Signed",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Agreement Signed",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Average Contract Value",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Average Contract Value",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Average Member Value",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Average Member Value",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Billing Account Number",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Billing Account Number",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "BOE",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "BOE",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Brand",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Brand",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "City",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "City",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Club OS",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Club OS",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Club Ready",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Club Ready",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Company",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Company",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Country",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Country",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Created On",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Created On",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Currency",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Currency",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Draft %",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Draft %",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Dues",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Dues",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Exited Agreements",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Exited Agreements",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Latitude",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Latitude",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Location",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Location #",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location #",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Longitude",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Longitude",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Main Phone",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Main Phone",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Modified On",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Modified On",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Monthly Attrition",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Monthly Attrition",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "NEW Agreements",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "NEW Agreements",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "PIF %",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "PIF %",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Remit Amount",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Remit Amount",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Renewal Fee",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Renewal Fee",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Renewal Status",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Renewal Status",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Rolling 12 Month Attrition",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Rolling 12 Month Attrition",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Sq Ft",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Sq Ft",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "State",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "State",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Status",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Status",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Status Reason",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Status Reason",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Time Zone",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Time Zone",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Total Rent",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Total Rent",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Website URL",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Website URL",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "ZIP Postal Code",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "ZIP Postal Code",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Agreement",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Agreement",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Current C2I",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Current C2I",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Differentiator",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Differentiator",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Temporary Closure",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Temporary Closure",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Closure Start Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Closure Start Date",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										},
+										{
+											"source": {
+												"name": "Closure End Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Closure End Date",
+												"type": "String",
+												"physicalType": "nvarchar"
+											}
+										}
+									],
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "drop",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "FRM_DS",
+									"type": "DatasetReference",
+									"parameters": {
+										"ServerName": {
+											"value": "@pipeline().parameters.ServerName",
+											"type": "Expression"
+										},
+										"DbName": {
+											"value": "@pipeline().parameters.DbName",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "COPY_DROP_TO_ARCHIVE",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "COPY_DROP_TO_DB",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"mappings": [
+										{
+											"source": {
+												"name": "Location ID",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location ID",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "1 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "1 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "3 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "3 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "5 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "5 mile pop",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Actual Opening",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Actual Opening",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AverageTerm",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AverageTerm",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Avg  monthly gross personal training revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Avg  monthly gross personal training revenue",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "BOE Verified",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "BOE Verified",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Close Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Close Date",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Competition",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Competition",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "E-mail Address",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "E-mail Address",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Exchange Rate",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Exchange Rate",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Existing Sales Rep",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Existing Sales Rep",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Express Location",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Express Location",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Financing Type",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Financing Type",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Gross Rent",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Gross Rent",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Hours of Operation",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Hours of Operation",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Lack of marketing",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Lack of marketing",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Landlord Issues",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Landlord Issues",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Legal Entity",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Legal Entity",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Location Type",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location Type",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Market Type",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Market Type",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Median income > $50000",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Median income > $50000",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Members  Dues and PIF",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Members  Dues and PIF",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Monthly Fee Amt",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Monthly Fee Amt",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Multi-Purpose Room",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Multi-Purpose Room",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Multi-Purpose Sq Ft",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Multi-Purpose Sq Ft",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "No Operating Capital",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "No Operating Capital",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "No Sales Revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "No Sales Revenue",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Number of Rooms",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Number of Rooms",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Online Signup",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Online Signup",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Open Status",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Open Status",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Open Temporary Pending Relo",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Open Temporary Pending Relo",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Opened On",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Opened On",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Original Franchisee Open Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Original Franchisee Open Date",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Other",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Other",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Other Equipment",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Other Equipment",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Other Operating System",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Other Operating System",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Owner",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Owner",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Partnership Dispute",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Partnership Dispute",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Payroll",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Payroll",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 1",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 1",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 2",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 2",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 3",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 3",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 4",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 4",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 5",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 5",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Percent Owner 6",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Percent Owner 6",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Person  Training Revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Person  Training Revenue",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Personal Issues",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Personal Issues",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Personal Training",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Personal Training",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Personal Training Revenue",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Personal Training Revenue",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Primary Contact",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Primary Contact",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Principal Operator",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Principal Operator",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Principal Owner",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Principal Owner",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Problem %",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Problem %",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Profit Loss",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Profit Loss",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Remit Amount Last Quarter",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Remit Amount Last Quarter",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Remit Amount Quarter Change",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Remit Amount Quarter Change",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Sale Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Sale Date",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Satellite Club",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Satellite Club",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Site",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Site",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Stage",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Stage",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Team Workouts",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Team Workouts",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Territory",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Territory",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Total Contracts",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Total Contracts",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Transfer Fee",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Transfer Fee",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Utilities",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Utilities",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Veteran",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Veteran",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Virtual Coaching",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Virtual Coaching",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Waxing Account#",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Waxing Account#",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Website",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Website",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Active CMS",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Active CMS",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Auto Checklist",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Auto Checklist",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP In-club Training Lead",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP In-club Training Lead",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP last Post-Launch Drip email sent",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP last Post-Launch Drip email sent",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Marketing",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Marketing",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Notes",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Notes",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Agreement Renewal Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Agreement Renewal Date",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Agreement Signed",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Agreement Signed",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Average Contract Value",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Average Contract Value",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Average Member Value",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Average Member Value",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Billing Account Number",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Billing Account Number",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "BOE",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "BOE",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Brand",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Brand",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "City",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "City",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Club OS",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Club OS",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Club Ready",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Club Ready",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Company",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Company",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Country",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Country",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Created On",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Created On",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Currency",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Currency",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Draft %",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Draft %",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Dues",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Dues",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Exited Agreements",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Exited Agreements",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Latitude",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Latitude",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Location",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Location #",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Location #",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Longitude",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Longitude",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Main Phone",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Main Phone",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Modified On",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Modified On",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Monthly Attrition",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Monthly Attrition",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "NEW Agreements",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "NEW Agreements",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "PIF %",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "PIF %",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Remit Amount",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Remit Amount",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Renewal Fee",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Renewal Fee",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Renewal Status",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Renewal Status",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Rolling 12 Month Attrition",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Rolling 12 Month Attrition",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Sq Ft",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Sq Ft",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "State",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "State",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Status",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Status",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Status Reason",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Status Reason",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Time Zone",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Time Zone",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Total Rent",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Total Rent",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Website URL",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Website URL",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "ZIP Postal Code",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "ZIP Postal Code",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "AFLP Agreement",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "AFLP Agreement",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Current C2I",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Current C2I",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Differentiator",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Differentiator",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Temporary Closure",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Temporary Closure",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Closure Start Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Closure Start Date",
+												"type": "String",
+												"physicalType": "String"
+											}
+										},
+										{
+											"source": {
+												"name": "Closure End Date",
+												"type": "String",
+												"physicalType": "String"
+											},
+											"sink": {
+												"name": "Closure End Date",
+												"type": "String",
+												"physicalType": "String"
+											}
+										}
+									],
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "drop",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "archive",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "DEL_DROP_Success",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "COPY_DROP_TO_ARCHIVE",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "drop",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true
+								}
+							}
+						},
+						{
+							"name": "LKA_UpdateLogFail",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "COPY_DROP_TO_DB",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[UpdateFailIntoLog]",
+									"storedProcedureParameters": {
+										"DataLoadStatus": {
+											"type": "String",
+											"value": "Failure"
+										},
+										"LogKey": {
+											"type": "Int32",
+											"value": {
+												"value": "@variables('logTaskKey')",
+												"type": "Expression"
+											}
+										}
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "LogTaskFlow_DS",
+									"type": "DatasetReference",
+									"parameters": {
+										"ServerName": {
+											"value": "@pipeline().parameters.ServerName",
+											"type": "Expression"
+										},
+										"DbName": {
+											"value": "@pipeline().parameters.DbName",
+											"type": "Expression"
+										}
+									}
+								}
+							}
+						},
+						{
+							"name": "COPY_DROP_TO_ERROR",
+							"type": "Copy",
+							"dependsOn": [
+								{
+									"activity": "LKA_UpdateLogFail",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobStorageReadSettings",
+										"recursive": true
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "DelimitedTextSink",
+									"storeSettings": {
+										"type": "AzureBlobStorageWriteSettings"
+									},
+									"formatSettings": {
+										"type": "DelimitedTextWriteSettings",
+										"quoteAllText": true,
+										"fileExtension": ".txt"
+									}
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "drop",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "error",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						},
+						{
+							"name": "DEL_DROP_Fail",
+							"type": "Delete",
+							"dependsOn": [
+								{
+									"activity": "COPY_DROP_TO_ERROR",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "FRM_BLOB",
+									"type": "DatasetReference",
+									"parameters": {
+										"folderName": "drop",
+										"fileName": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								},
+								"enableLogging": false,
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"ServerName": {
+				"type": "string",
+				"defaultValue": "ml-workspace.database.windows.net"
+			},
+			"DbName": {
+				"type": "string",
+				"defaultValue": "ML"
+			},
+			"groupId": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"logTaskKey": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}
