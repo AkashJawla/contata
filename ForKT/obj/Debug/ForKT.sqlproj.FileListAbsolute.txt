@@ -1,6 +1,0 @@
-G:\contata\contata\ForKT\bin\Debug\ForKT.dacpac
-G:\contata\contata\ForKT\bin\Debug\ForKT.dll
-G:\contata\contata\ForKT\bin\Debug\ForKT.pdb
-G:\contata\contata\ForKT\obj\Debug\ForKT.sqlprojAssemblyReference.cache
-G:\contata\contata\ForKT\obj\Debug\ForKT.dll
-G:\contata\contata\ForKT\obj\Debug\ForKT.pdb
