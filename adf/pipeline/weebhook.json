@@ -50,8 +50,6 @@
 					"url": "https://outlook.office.com/webhook/98ffc58a-9a69-4969-8a7e-983f6e0c1e4a@1f2b5de9-e9dd-419a-ade5-fee6c92e7f92/IncomingWebhook/0f52e321ccda424696cee6268d3dc2c4/630f544c-af05-4e9d-8d63-8c0e914933e0",
 					"method": "POST",
 					"body": {
-						"@type": "MessageCard",
-						"@context": "https://schema.org/extensions",
 						"summary": "ADF Alert",
 						"themeColor": "eb3434",
 						"title": "Azure DataFactory notification alert!"
