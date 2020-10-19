@@ -15,10 +15,6 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"dataset": {
-						"referenceName": "Excel1",
-						"type": "DatasetReference"
-					},
 					"fieldList": [
 						"itemName"
 					],
@@ -44,7 +40,7 @@
 					"url": "https://hooks.glip.com/webhook/d31b48c2-dea1-4c00-a82d-013a291d0d04",
 					"method": "POST",
 					"body": {
-						"title": "Azure DataFactory notification alert!Pass"
+						"title": "Azure DataFactory notification alert!"
 					},
 					"timeout": "00:01:00",
 					"reportStatusOnCallBack": true
